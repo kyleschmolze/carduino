@@ -82,8 +82,8 @@ void loop() {
     else smooth_rpm = last_rpm + ((rpm-last_rpm) * ((double) diff/ms_easing_duration)); // inside easing function
     
     //Serial.println("diff: "); Serial.println(diff); Serial.println("ms_easing_duration: "); Serial.println(ms_easing_duration);
-    //Serial.println("rpm: "); Serial.println(rpm); Serial.println("last_rpm: "); Serial.println(last_rpm);
-    //Serial.println("smooth_rpm: "); Serial.println(smooth_rpm);
+    Serial.print("rpm: "); Serial.print(rpm); //Serial.print("last_rpm: "); Serial.print(last_rpm);
+    Serial.print(", smooth_rpm: "); Serial.println(smooth_rpm);
     
     if(smooth_rpm < 0) smooth_rpm = 0;
     if(smooth_rpm > 8000) smooth_rpm = 8000;
@@ -131,7 +131,7 @@ void loop() {
       if(rpm != 9999) last_rpm = rpm;
       rpm = (canMsg.data[3]*256 + canMsg.data[4])/4; 
       rpm_read_at = millis();
-      Serial.println(rpm);
+      //Serial.println(rpm);
     }
   }
 
