@@ -31,7 +31,7 @@ long last_rpm = 0;
 long smooth_rpm;
 
 const int spiCSPin = 10;
-const boolean simulation = false;
+const boolean simulation = true;
 
 MCP2515 mcp2515(spiCSPin);
 
@@ -142,10 +142,12 @@ void loop() {
     last_rpm_request_at = millis();
     
     if(simulation) {
-      if(rpm != 9999) last_rpm = rpm;
-      rpm = (rpm + ms_between_can_requests) % 5000;
+      if(rpm == 9999) { rpm = 1000; last_rpm = 1000; }
+      last_rpm = rpm;
+      if(rpm < 500) rpm += random(0, 400);
+      else if(rpm > 4500) rpm -= random(0, 400);
+      else rpm += random(-400, 400);
       rpm_read_at = millis();
-      // Serial.println(rpm);
     }
   }
 }
