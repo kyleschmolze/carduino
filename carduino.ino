@@ -31,7 +31,7 @@ long last_rpm = 0;
 long smooth_rpm;
 
 const int spiCSPin = 10;
-const boolean simulation = false;
+const boolean simulation = true;
 
 MCP2515 mcp2515(spiCSPin);
 
@@ -60,6 +60,15 @@ void requestDataOBD(unsigned long int pid) {
   mcp2515.sendMessage(&canMsgOutgoing);
 }
 
+double easeInOutCubic(double t) {
+  return t<.5 ? 4*t*t*t : (t-1)*(2*t-2)*(2*t-2)+1;
+}
+double easeInOutSine(double t) {
+  return .5;
+  // need to translate this to arduino
+  // return -(cos(PI*t)-1)/2;
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -74,12 +83,38 @@ void setup() {
   requestDataOBD(PID_RPM);
 }
 
+int currentSlope = 0;
+
 void loop() {
   // put your main code here, to run repeatedly:
   if(rpm != 9999) {
     unsigned long diff = millis() - rpm_read_at;
-    if(diff >= ms_easing_duration) smooth_rpm = rpm; // past easing function, just set it direct
-    else smooth_rpm = last_rpm + ((rpm-last_rpm) * ((double) diff/ms_easing_duration)); // inside easing function
+
+    //long maxSpeedPerSec = 5000;
+    //long maxSpeedPer10Ms = maxSpeedPerSec / 100;
+    //rpm = 3000;
+    //smooth_rpm = 2500;
+    //delta = 500;
+    
+    //int currentSlopePer100ms = 100;
+    //int currentSlope = 10;
+    //rpm = 3000;
+    //smooth_rpm = 2500;
+    // wanna get half way to the target in the easing duration
+    currentSlope += (rpm - smooth_rpm) * ((double) diff / ms_easing_duration);
+    smooth_rpm += currentSlope;
+    //perc_thru_easing = diff / ms_easing_duration;
+    //currentSlopePer100ms = (rpm - smooth_rpm)/2;
+    //currentSlope += (rpm - smooth_rpm)/2 
+
+    Serial.print("rpm: "); Serial.print(rpm); Serial.print(", smooth_rpm: "); Serial.println(smooth_rpm);
+    //Serial.print(" currentSlope: "); Serial.print(currentSlope);
+    //Serial.print(" diff: "); Serial.print(diff);
+    //Serial.print(" ((double) diff / ms_easing_duration) "); Serial.println(((double) diff / ms_easing_duration));
+    
+
+    //if(diff >= ms_easing_duration) smooth_rpm = rpm; // past easing function, just set it direct
+    //else smooth_rpm = last_rpm + ((rpm-last_rpm) * ((double) diff/ms_easing_duration)); // inside easing function
     
     //Serial.println("diff: "); Serial.println(diff); Serial.println("ms_easing_duration: "); Serial.println(ms_easing_duration);
     //Serial.println("rpm: "); Serial.println(rpm); Serial.println("last_rpm: "); Serial.println(last_rpm);
@@ -131,7 +166,7 @@ void loop() {
       if(rpm != 9999) last_rpm = rpm;
       rpm = (canMsg.data[3]*256 + canMsg.data[4])/4; 
       rpm_read_at = millis();
-      Serial.println(rpm);
+      //Serial.println(rpm);
     }
   }
 
@@ -142,10 +177,11 @@ void loop() {
     last_rpm_request_at = millis();
     
     if(simulation) {
-      if(rpm != 9999) last_rpm = rpm;
-      rpm = (rpm + ms_between_can_requests) % 5000;
+      if(rpm == 9999) rpm = 0;
+      if(rpm < 500) rpm += random(0, 400);
+      else if(rpm > 4500) rpm -= random(0, 400);
+      else rpm += random(-400, 400);
       rpm_read_at = millis();
-      // Serial.println(rpm);
     }
   }
 }
