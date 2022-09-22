@@ -10,37 +10,32 @@
 // https://github.com/neiman3/scangauge
 // https://www.instructables.com/TachometerScan-Gauge-Using-Arduino-OBD2-and-CAN-Bu/
 
-
 // misc placeholders
 #define PID_RPM 0x0C
 #define CAN_2515
 
-// frame structures
+// CAN frame structures
 struct can_frame canMsg; //inbound
 struct can_frame canMsgOutgoing;
 
 // settings
-long ms_easing_duration = 200;
-long ms_between_can_requests = 100;
-
-// vars
-unsigned long rpm_read_at;
-unsigned long last_rpm_request_at;
-long rpm = 0;
-long last_rpm = 0;
-long smooth_rpm;
-
-const int spiCSPin = 10;
-const boolean simulation = false;
-
-MCP2515 mcp2515(spiCSPin);
-
+long ms_easing_duration = 200; // how long to ease smooth_rpm to a newly-read RPM
+long ms_between_can_requests = 100; // how long to wait between CAN requests
+const boolean simulation = false; // set to true to simulate RPM values (end of file)
 const int NUM_LEDS = 120;
 const int LED_STRIP_PIN = 7;
+const int spiCSPin = 10;
 
+// vars
+long rpm = 0;
+long last_rpm = 0;
+unsigned long rpm_read_at;
+unsigned long last_rpm_request_at;
+long smooth_rpm; // the value we ease-in-out and use for LEDs
 int hue;
 int brightness;
 
+MCP2515 mcp2515(spiCSPin);
 CRGB leds[NUM_LEDS];
 
 // function to request OBD data
@@ -58,6 +53,7 @@ void requestDataOBD(unsigned long int pid) {
   mcp2515.sendMessage(&canMsgOutgoing);
 }
 
+// easing function that looks nice on the eyes when LEDs do it!
 double easeInOutCubic(double t) {
   return t<.5 ? 4*t*t*t : (t-1)*(2*t-2)*(2*t-2)+1;
 }
@@ -67,11 +63,12 @@ void setup() {
 
   FastLED.addLeds<NEOPIXEL, LED_STRIP_PIN>(leds, NUM_LEDS);
 
-  // init can board
+  // init CAN board
   mcp2515.reset();
   mcp2515.setBitrate(CAN_1000KBPS); // Your vehicle may use a different speed!
   mcp2515.setNormalMode();
 
+  // initial request
   requestDataOBD(PID_RPM);
 }
 
@@ -81,12 +78,14 @@ void loop() {
   if(diff >= ms_easing_duration) smooth_rpm = rpm; // past easing function, just set it direct
   else smooth_rpm = last_rpm + ((rpm-last_rpm) * easeInOutCubic((double) diff/ms_easing_duration)); // inside easing function
   
-  //Serial.println("diff: "); Serial.println(diff); Serial.println("ms_easing_duration: "); Serial.println(ms_easing_duration);
-  
+  // min/max values
   if(smooth_rpm < 800) smooth_rpm = 800;
   if(smooth_rpm > 5000) smooth_rpm = 5000;
 
-  // using hue from https://raw.githubusercontent.com/FastLED/FastLED/gh-pages/images/HSV-rainbow-with-desc.jpg
+  // simple hue and brightness controls
+  // under 3000 RPM, ramp from yellow to red, and ramp from dim to bright
+  // over 3000 RPM, ramp from red to purple, and stay full brightness
+  // ref: https://raw.githubusercontent.com/FastLED/FastLED/gh-pages/images/HSV-rainbow-with-desc.jpg
   if(smooth_rpm < 3000) {
     hue = map(smooth_rpm, 800, 3000, 64, 0);
     brightness = map(smooth_rpm, 800, 3000, 120, 255);
@@ -95,75 +94,14 @@ void loop() {
     brightness = 255;
   }
   FastLED.showColor(CHSV(hue, 255, brightness)); 
-  Serial.print("rpm: "); Serial.print(rpm);
-  Serial.print(", hue: "); Serial.print(hue);
-  Serial.print(", smooth_rpm: "); Serial.println(smooth_rpm);
+  // want to track these values nicely in the Serial Plotter? Print 'em like this:
+  // Serial.print("rpm: "); Serial.print(rpm);
+  // Serial.print(", hue: "); Serial.print(hue);
+  // Serial.print(", smooth_rpm: "); Serial.println(smooth_rpm);
   
-  /*
-  int startingRpm = 800;
-  int startingRed = 255;
-  int startingGreen = 255;
-  int startingBlue = 0;
-  int startingBrightness = 50;
-  int cutoff1 = 3000;
-  int cutoff1Red = 255;
-  int cutoff1Green = 0;
-  int cutoff1Blue = 0;
-  int cutoff1Brightness = 150;
-  int cutoff2 = 4000;
-  int cutoff2Red = 255;
-  int cutoff2Green = 0;
-  int cutoff2Blue = 130;
-  int cutoff2Brightness = 255;
-  int cutoff3 = 5000;
-  int cutoff3Red = 255;
-  int cutoff3Green = 255;
-  int cutoff3Blue = 255;
-  int cutoff3Brightness = 255;
-
-  if(smooth_rpm < startingRpm) {
-    red = startingRed;
-    green = startingGreen;
-    blue = startingBlue;
-    brightness = startingBrightness;
-  } else if(smooth_rpm < cutoff1) {
-    red = startingRed + ((double) (smooth_rpm-startingRpm)/(cutoff1-startingRpm)*(cutoff1Red-startingRed));
-    green = startingGreen + ((double) (smooth_rpm-startingRpm)/(cutoff1-startingRpm)*(cutoff1Green-startingGreen));
-    blue = startingBlue + ((double) (smooth_rpm-startingRpm)/(cutoff1-startingRpm)*(cutoff1Blue-startingBlue));
-    brightness = startingBrightness + ((double) (smooth_rpm-startingRpm)/(cutoff1-startingRpm)*(cutoff1Brightness-startingBrightness));
-  } else if(smooth_rpm < cutoff2) {
-    red = cutoff1Red + ((double) (smooth_rpm-cutoff1)/(cutoff2-cutoff1)*(cutoff2Red-cutoff1Red));
-    green = cutoff1Green + ((double) (smooth_rpm-cutoff1)/(cutoff2-cutoff1)*(cutoff2Green-cutoff1Green));
-    blue = cutoff1Blue + ((double) (smooth_rpm-cutoff1)/(cutoff2-cutoff1)*(cutoff2Blue-cutoff1Blue));
-    brightness = cutoff1Brightness + ((double) (smooth_rpm-cutoff1)/(cutoff2-cutoff1)*(cutoff2Brightness-cutoff1Brightness));
-  } else if(smooth_rpm < cutoff3) {
-    red = cutoff2Red + ((double) (smooth_rpm-cutoff2)/(cutoff3-cutoff2)*(cutoff3Red-cutoff2Red));
-    green = cutoff2Green + ((double) (smooth_rpm-cutoff2)/(cutoff3-cutoff2)*(cutoff3Green-cutoff2Green));
-    blue = cutoff2Blue + ((double) (smooth_rpm-cutoff2)/(cutoff3-cutoff2)*(cutoff3Blue-cutoff2Blue));
-    brightness = cutoff2Brightness + ((double) (smooth_rpm-cutoff2)/(cutoff3-cutoff2)*(cutoff3Brightness-cutoff2Brightness));
-
-  } else {
-    red = cutoff3Red;
-    green = cutoff3Green;
-    blue = cutoff3Blue;
-    brightness = cutoff3Brightness;
-  }
-
-  //Serial.print("smooth_rpm: "); Serial.print(smooth_rpm);
-  //Serial.print(", red: "); Serial.print(red);
-  //Serial.print(", green: "); Serial.print(green);
-  //Serial.print(", blue: "); Serial.print(blue);
-  //Serial.print(", brightness: "); Serial.println(brightness);
-
-  for(int i = 0; i < NUM_LEDS; i++) {
-    strip.setPixelColor(i, strip.Color(red, green, blue));
-    strip.setBrightness(brightness);
-  }
-  strip.show();
-  */
-  
+  // Check for a received RPM message via CAN
   if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
-    if (canMsg.data[2] == PID_RPM) { // ICE RPM
+    if (canMsg.data[2] == PID_RPM) {
       // Some codes use more than one byte to store the svalue. 
       // The real RPM is a conjugate of two bytes, [3] and [4].
       last_rpm = rpm;
@@ -178,6 +116,8 @@ void loop() {
     // update counter
     last_rpm_request_at = millis();
     
+    // simulation allows us to either move the RPM around semi-randomly,
+    // or just linearly cycle up from 0-5000
     if(simulation) {
       last_rpm = rpm;
       if(true) rpm += 800; // simple linear increase simulation
