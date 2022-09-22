@@ -14,11 +14,11 @@ You'll need:
 This is the trickiest part for sure, but I had good luck with it! You'll need a CAN BUS Sheild,
 [like this one](https://www.amazon.com/Comidox-MCP2515-Receiver-Controller-Development/dp/B07J9KZ4L4/ref=asc_df_B07J9KZ4L4?tag=bngsmtphsnus-20&linkCode=df0&hvadid=80539344142696&hvnetw=&hvqmt=e&hvbmt=be&hvdev=c&hvlocint=&hvlocphy=&hvtargid=pla-4584138871897991&psc=1), and you just solder/wire up the CAN HIGH and CAN LOW from the Shield directly to the pins on the OBD2 port, according to the pin diagram below (apparently this is consistent between cars):
 
--- image here --
+<img width="656" alt="Screen Shot 2022-09-22 at 10 46 18 AM" src="https://user-images.githubusercontent.com/1200038/191822946-0f0558d9-bbb6-4c89-b2e0-66cd18c70583.png">
 
 Then wire the CAN BUS Shield to your Arduino like so (ignore the fact that this image has two Arduinos + shields - you'll only need one of each):
 
--- image here --
+https://www.electronicshub.org/wp-content/uploads/2018/08/Arduino-MCP2515-CAN-Bus-Interface-Circuit-Diagram.jpg![image](https://user-images.githubusercontent.com/1200038/191822982-fd190026-7eca-4575-a49d-137c390e7584.png)
 
 Now, using the code from [this helpful guide](https://www.instructables.com/TachometerScan-Gauge-Using-Arduino-OBD2-and-CAN-Bu/), you can check if your Arduino is able to pull the RPM from the engine! First get the [mcp2515](https://github.com/autowp/arduino-mcp2515) library installed (easiest to just download the folder via Github then put it into the Libraries folder in your Arduino folder). Then something as simple as this should work:
 
@@ -90,9 +90,9 @@ void loop() {
 
 Upload it into the Arduino, open your Serial Monitor (or Serial Plotter) and see if you can read that RPM! If it's not working, keep in mind that some cars use different CAN messages / codes. There's a list of them on Wikipedia [here](https://en.wikipedia.org/wiki/OBD-II_PIDs#Service_01) (though thankfully my Mazda 3 used the most common settings).
 
-Once I got that working, it was just a question of hooking up some LEDs and getting the animations right! I found that a smoothing function was important on the RPM, as I was only sampling the RPM a few times per second (I tried 3, 5, and 10 to see what looked good, ended up using 5). If I just changed the lights based on the most recent RPM, the lights would look super jumpy. 
+Once I got that working, it was just a question of hooking up some LEDs and getting the animations right! I found that a smoothing function was important on the RPM, as I was only sampling the RPM a few times per second (I tried 3, 5, and 10 to see what looked good, ended up using 5). If I just had a simple `rpm` variable getting updated, and the lights were controlled using that, the lights would look super jumpy :/ 
 
-So instead, I always stored the most-recent RPM in `rpm` as well as the RPM value before that in `last_rpm`. I also tracked a timestamp `rpm_read_at`. That way, on each `loop()`, I could calculate how many milliseconds it had been since we got a new RPM signal. I'd then be able to "ease" from `last_rpm` to `rpm` using a custom function. The final value was stored in `smooth_rpm`, which I then used to control the color and brightness of the LEDs. Finally, a variable `ms_easing_duration` controlled how quickly `smooth_rpm` should catch up with `rpm`. The code ended up like this:
+So instead, I always stored the most-recent RPM in `rpm` as well as the RPM value _before that_ in `last_rpm`. I also tracked a timestamp `rpm_read_at`. That way, on each `loop()`, I could calculate how many milliseconds it had been since we got a new RPM signal. I'd then be able to "ease" from `last_rpm` to `rpm` using a custom function. The final value was stored in `smooth_rpm`, which I then used to control the color and brightness of the LEDs. Finally, a variable `ms_easing_duration` controlled how quickly `smooth_rpm` should catch up with `rpm` (200ms of easing worked well for me). The code ended up like this:
 
 ```java
   // inside loop():
@@ -119,9 +119,11 @@ And if you print your variables in Arduino nicely, they show up in the Serial Pl
 ```
 Produces fun live-updating graphs like this!
 
--- image here --
-
+<img width="1154" alt="Screen Shot 2022-09-22 at 10 26 53 AM" src="https://user-images.githubusercontent.com/1200038/191823447-71de3eed-8dbd-44c5-887a-30e3c356261a.png">
 
 My final steps included splitting a USB cable in half so the LEDs could have their own power lines coming in (I found that running 120 LEDs worth of current through the Arduino caused it to stop responding to my computer) and zip-tie-ing the whole rig up under the car dash! (Perhaps a more professional job would be to power the whole thing from the OBD port, but that requires stepping down the power from 12V to 5V, and also my car's OBD port is *always* hooked up to the battery, so I'd need a separate switch for my lights in order to prevent them from killing the battery overnight. Instead, I just wired a long USB cable to my cigarette port USB adapter - this has the advantage of killing power when the ignition is turned off!).
 
--- final video --
+
+### The final product!
+
+![IMG_3007](https://user-images.githubusercontent.com/1200038/191823888-9a8b92c9-e2e8-49a8-b80d-bf02895175f5.GIF)
