@@ -29,8 +29,8 @@ const int spiCSPin = 10;
 // vars
 long rpm = 0;
 long last_rpm = 0;
-unsigned long rpm_read_at;
-unsigned long last_rpm_request_at;
+unsigned long rpm_read_at = 0;
+unsigned long last_rpm_request_at = 0;
 long smooth_rpm; // the value we ease-in-out and use for LEDs
 int hue;
 int brightness;
@@ -113,7 +113,7 @@ void loop() {
   // request an rpm update no more than once every ms_between_can_requests milliseconds
   if ((millis() - last_rpm_request_at) > ms_between_can_requests) {
     requestDataOBD(PID_RPM);
-    // update counter
+    // update timestamp
     last_rpm_request_at = millis();
     
     // simulation allows us to either move the RPM around semi-randomly,
