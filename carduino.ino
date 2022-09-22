@@ -1,6 +1,6 @@
 #include <SPI.h>
 #include <mcp2515.h>
-#include <Adafruit_NeoPixel.h>
+#include <FastLED.h>
 
 #ifdef __AVR__
   #include <avr/power.h>
@@ -21,7 +21,7 @@ struct can_frame canMsgOutgoing;
 
 // settings
 long ms_easing_duration = 200;
-long ms_between_can_requests = 200;
+long ms_between_can_requests = 100;
 
 // vars
 unsigned long rpm_read_at;
@@ -38,12 +38,10 @@ MCP2515 mcp2515(spiCSPin);
 const int NUM_LEDS = 120;
 const int LED_STRIP_PIN = 7;
 
-int red;
-int green;
-int blue;
+int hue;
 int brightness;
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
+CRGB leds[NUM_LEDS];
 
 // function to request OBD data
 void requestDataOBD(unsigned long int pid) {
@@ -64,15 +62,10 @@ double easeInOutCubic(double t) {
   return t<.5 ? 4*t*t*t : (t-1)*(2*t-2)*(2*t-2)+1;
 }
 
-double easeInOutSine(double t) {
-  return -(cos(PI*t)-1)/2;
-}
-
 void setup() {
   Serial.begin(115200);
 
-  strip.begin();
-  strip.show(); // Initialize all pixels to 'off'
+  FastLED.addLeds<NEOPIXEL, LED_STRIP_PIN>(leds, NUM_LEDS);
 
   // init can board
   mcp2515.reset();
@@ -86,16 +79,27 @@ void loop() {
   // put your main code here, to run repeatedly:
   unsigned long diff = millis() - rpm_read_at;
   if(diff >= ms_easing_duration) smooth_rpm = rpm; // past easing function, just set it direct
-  else smooth_rpm = last_rpm + ((rpm-last_rpm) * easeInOutSine((double) diff/ms_easing_duration)); // inside easing function
+  else smooth_rpm = last_rpm + ((rpm-last_rpm) * easeInOutCubic((double) diff/ms_easing_duration)); // inside easing function
   
   //Serial.println("diff: "); Serial.println(diff); Serial.println("ms_easing_duration: "); Serial.println(ms_easing_duration);
-  Serial.print("rpm: "); Serial.print(rpm); //Serial.print("last_rpm: "); Serial.print(last_rpm);
+  
+  if(smooth_rpm < 800) smooth_rpm = 800;
+  if(smooth_rpm > 5000) smooth_rpm = 5000;
+
+  // using hue from https://raw.githubusercontent.com/FastLED/FastLED/gh-pages/images/HSV-rainbow-with-desc.jpg
+  if(smooth_rpm < 3000) {
+    hue = map(smooth_rpm, 800, 3000, 64, 0);
+    brightness = map(smooth_rpm, 800, 3000, 120, 255);
+  } else {
+    hue = map(smooth_rpm, 3000, 5000, 255, 200);
+    brightness = 255;
+  }
+  FastLED.showColor(CHSV(hue, 255, brightness)); 
+  Serial.print("rpm: "); Serial.print(rpm);
+  Serial.print(", hue: "); Serial.print(hue);
   Serial.print(", smooth_rpm: "); Serial.println(smooth_rpm);
   
-  if(smooth_rpm < 0) smooth_rpm = 0;
-  if(smooth_rpm > 8000) smooth_rpm = 8000;
-
-  
+  /*
   int startingRpm = 800;
   int startingRed = 255;
   int startingGreen = 255;
@@ -156,6 +160,7 @@ void loop() {
     strip.setBrightness(brightness);
   }
   strip.show();
+  */
   
   if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
     if (canMsg.data[2] == PID_RPM) { // ICE RPM
