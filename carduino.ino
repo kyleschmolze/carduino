@@ -161,6 +161,7 @@ void loop() {
     if (canMsg.data[2] == PID_RPM) { // ICE RPM
       // Some codes use more than one byte to store the svalue. 
       // The real RPM is a conjugate of two bytes, [3] and [4].
+      last_rpm = rpm;
       rpm = (canMsg.data[3]*256 + canMsg.data[4])/4; 
       rpm_read_at = millis();
     }
