@@ -1,5 +1,5 @@
 # Carduino (CarPM?)
-A relatively simple Arduino project to connect interior lights in my car to a live-read of the engine's RPM. Since I have a manual transmission, it's fun to see the lights go WOO when I accelerate or change gears.
+A relatively simple Arduino project to connect interior lights in my car to a live-read of the engine's RPM. Since I have a manual transmission, it's fun to see the lights go WOO when I accelerate or change gears. Slow = yellow lights. Faster = red. Really pushing it = purple!
 
 Note: In addition to lots of online searching, I drew heavily from [this helpful guide](https://www.instructables.com/TachometerScan-Gauge-Using-Arduino-OBD2-and-CAN-Bu/) as well as [this one](https://www.electronicshub.org/arduino-mcp2515-can-bus-tutorial/).
 
@@ -18,7 +18,7 @@ This is the trickiest part for sure, but I had good luck with it! You'll need a 
 
 Then wire the CAN BUS Shield to your Arduino like so (ignore the fact that this image has two Arduinos + shields - you'll only need one of each):
 
-https://www.electronicshub.org/wp-content/uploads/2018/08/Arduino-MCP2515-CAN-Bus-Interface-Circuit-Diagram.jpg![image](https://user-images.githubusercontent.com/1200038/191822982-fd190026-7eca-4575-a49d-137c390e7584.png)
+<img width="656" alt="Arduino-MCP2515-CAN-Bus-Interface-Circuit-Diagram" src="https://user-images.githubusercontent.com/1200038/191822982-fd190026-7eca-4575-a49d-137c390e7584.png">
 
 Now, using the code from [this helpful guide](https://www.instructables.com/TachometerScan-Gauge-Using-Arduino-OBD2-and-CAN-Bu/), you can check if your Arduino is able to pull the RPM from the engine! First get the [mcp2515](https://github.com/autowp/arduino-mcp2515) library installed (easiest to just download the folder via Github then put it into the Libraries folder in your Arduino folder). Then something as simple as this should work:
 
